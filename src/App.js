@@ -1,25 +1,39 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Layout from "./Layout";
+import Payments from "./pages/Payments";
+import Cards from "./pages/Cards";
+import Momo from "./pages/Momo";
+import Transactions from "./pages/Transactions";
+import Loans from "./pages/Loans";
+import RepaymentSchedules from "./pages/RepaymentSchedules";
+import Agents from "./pages/Agents";
+import Users from "./pages/UserProfiles";
+import Cars from "./pages/Cars";
+import Stations from "./pages/Stations";
+import Banks from "./pages/Banks";
+import Requests from "./pages/Requests";
+import Dashboard from "./pages/Dashboard";
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Layout>
+        <Routes>
+          <Route path="/admin" element={<Dashboard />} />
+          <Route path="/admin/payments" element={<Payments />} />
+          <Route path="/admin/cards" element={<Cards />} />
+          <Route path="/admin/momo" element={<Momo />} />
+          <Route path="/admin/transactions" element={<Transactions />} />
+          <Route path="/admin/loans" element={<Loans />} />
+          <Route path="/admin/repayment" element={<RepaymentSchedules />} />
+          <Route path="/admin/agents" element={<Agents />} />
+          <Route path="/admin/users" element={<Users />} />
+          <Route path="/admin/cars" element={<Cars />} />
+          <Route path="/admin/stations" element={<Stations />} />
+          <Route path="/admin/banks" element={<Banks />} />
+          <Route path="/admin/requests" element={<Requests />} />
+        </Routes>
+      </Layout>
+    </Router>
   );
 }
-
-export default App;
