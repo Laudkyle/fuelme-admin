@@ -3,19 +3,61 @@ import DataTable from "react-data-table-component";
 
 export default function Cars() {
   const [cars, setCars] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    user_uuid: "",
+    car_model: "",
+    car_number: "",
+    fuel_type: "",
+  });
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    const fetchCars = async () => {
-      try {
-        const res = await fetch("/api/cars");
-        const data = await res.json();
-        setCars(data);
-      } catch (error) {
-        console.error("Error fetching cars:", error);
-      }
-    };
     fetchCars();
   }, []);
+
+  const fetchCars = async () => {
+    try {
+      const res = await fetch("/api/cars");
+      const data = await res.json();
+      setCars(data);
+    } catch (error) {
+      console.error("Error fetching cars:", error);
+    }
+  };
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.user_uuid.trim()) newErrors.user_uuid = "User UUID is required";
+    if (!formData.car_model.trim()) newErrors.car_model = "Car model is required";
+    if (!formData.car_number.trim()) newErrors.car_number = "Car number is required";
+    if (!formData.fuel_type.trim()) newErrors.fuel_type = "Fuel type is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    try {
+      const res = await fetch("/api/cars", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        setIsModalOpen(false);
+        fetchCars(); // Refresh table
+      } else {
+        console.error("Failed to add car");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
 
   const columns = [
     { name: "Car UUID", selector: (row) => row.car_uuid, sortable: true },
@@ -36,9 +78,70 @@ export default function Cars() {
   ];
 
   return (
-    <div>
+    <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Cars</h1>
+
+      <button onClick={() => setIsModalOpen(true)} className="mb-4 px-4 py-2 bg-blue-500 text-white rounded">
+        + Add Car
+      </button>
+
       <DataTable columns={columns} data={cars} pagination highlightOnHover />
+
+      {/* Modal for Adding Car */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
+          <div className="bg-white p-6 rounded shadow-md w-96">
+            <h2 className="text-lg font-bold mb-4">Add Car</h2>
+            <form onSubmit={handleSubmit}>
+
+              <label className="block mb-2">User UUID</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.user_uuid}
+                onChange={(e) => setFormData({ ...formData, user_uuid: e.target.value })}
+              />
+              {errors.user_uuid && <p className="text-red-500 text-sm">{errors.user_uuid}</p>}
+
+              <label className="block mb-2">Car Model</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.car_model}
+                onChange={(e) => setFormData({ ...formData, car_model: e.target.value })}
+              />
+              {errors.car_model && <p className="text-red-500 text-sm">{errors.car_model}</p>}
+
+              <label className="block mb-2">Car Number</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.car_number}
+                onChange={(e) => setFormData({ ...formData, car_number: e.target.value })}
+              />
+              {errors.car_number && <p className="text-red-500 text-sm">{errors.car_number}</p>}
+
+              <label className="block mb-2">Fuel Type</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.fuel_type}
+                onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
+              />
+              {errors.fuel_type && <p className="text-red-500 text-sm">{errors.fuel_type}</p>}
+
+              <div className="flex justify-between mt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
+                  Add
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

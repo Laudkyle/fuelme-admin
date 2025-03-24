@@ -3,19 +3,88 @@ import DataTable from "react-data-table-component";
 
 export default function Stations() {
   const [stations, setStations] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [currentStation, setCurrentStation] = useState(null);
+  const [formData, setFormData] = useState({
+    location: "",
+    code: "",
+    bank_uuid: "",
+  });
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    const fetchStations = async () => {
-      try {
-        const res = await fetch("/api/stations");
-        const data = await res.json();
-        setStations(data);
-      } catch (error) {
-        console.error("Error fetching stations:", error);
-      }
-    };
     fetchStations();
   }, []);
+
+  const fetchStations = async () => {
+    try {
+      const res = await fetch("/api/stations");
+      const data = await res.json();
+      setStations(data);
+    } catch (error) {
+      console.error("Error fetching stations:", error);
+    }
+  };
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.location.trim()) newErrors.location = "Location is required";
+    if (!formData.code.trim()) newErrors.code = "Code is required";
+    if (!formData.bank_uuid.trim()) newErrors.bank_uuid = "Bank UUID is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const url = isEdit ? `/api/stations/${currentStation.station_uuid}` : "/api/stations";
+    const method = isEdit ? "PUT" : "POST";
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        setIsModalOpen(false);
+        setIsEdit(false);
+        fetchStations(); // Refresh table
+      } else {
+        console.error("Failed to save station");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
+
+  const handleEdit = (station) => {
+    setIsEdit(true);
+    setCurrentStation(station);
+    setFormData({ ...station });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (station_uuid) => {
+    if (!window.confirm("Are you sure you want to delete this station?")) return;
+
+    try {
+      const res = await fetch(`/api/stations/${station_uuid}`, { method: "DELETE" });
+
+      if (res.ok) {
+        fetchStations();
+      } else {
+        console.error("Failed to delete station");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
 
   const columns = [
     { name: "Station UUID", selector: (row) => row.station_uuid, sortable: true },
@@ -27,17 +96,72 @@ export default function Stations() {
       name: "Actions",
       cell: (row) => (
         <div>
-          <button className="text-blue-500 mr-2">Edit</button>
-          <button className="text-red-500">Delete</button>
+          <button onClick={() => handleEdit(row)} className="text-blue-500 mr-2">Edit</button>
+          <button onClick={() => handleDelete(row.station_uuid)} className="text-red-500">Delete</button>
         </div>
       ),
     },
   ];
 
   return (
-    <div>
+    <div className="p-6 bg-white shadow rounded">
       <h1 className="text-2xl font-bold mb-4">Stations</h1>
+
+      <button
+        onClick={() => { setIsEdit(false); setFormData({ location: "", code: "", bank_uuid: "" }); setIsModalOpen(true); }}
+        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded"
+      >
+        + Add Station
+      </button>
+
       <DataTable columns={columns} data={stations} pagination highlightOnHover />
+
+      {/* Modal for Adding/Editing Station */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
+          <div className="bg-white p-6 rounded shadow-md w-96">
+            <h2 className="text-lg font-bold mb-4">{isEdit ? "Edit Station" : "Add Station"}</h2>
+            <form onSubmit={handleSubmit}>
+
+              <label className="block mb-2">Location</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+              {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
+
+              <label className="block mb-2">Code</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              />
+              {errors.code && <p className="text-red-500 text-sm">{errors.code}</p>}
+
+              <label className="block mb-2">Bank UUID</label>
+              <input
+                type="text"
+                className="w-full border p-2 rounded mb-2"
+                value={formData.bank_uuid}
+                onChange={(e) => setFormData({ ...formData, bank_uuid: e.target.value })}
+              />
+              {errors.bank_uuid && <p className="text-red-500 text-sm">{errors.bank_uuid}</p>}
+
+              <div className="flex justify-between mt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
+                  {isEdit ? "Update" : "Add"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
