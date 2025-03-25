@@ -18,11 +18,11 @@ export default function UsersProfiles() {
   useEffect(() => {
     fetchUsersAndProfiles();
   }, []);
-
+const url = process.env.API_URL
   const fetchUsersAndProfiles = async () => {
     try {
-      const usersRes = await fetch("/api/users");
-      const profilesRes = await fetch("/api/profiles");
+      const usersRes = await fetch(`${url}/api/users`);
+      const profilesRes = await fetch(`${url}/api/profiles`);
 
       const users = await usersRes.json();
       const profiles = await profilesRes.json();

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
+import api from "../api";
 
 export default function Stations() {
   const [stations, setStations] = useState([]);
+  const [banks, setBanks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentStation, setCurrentStation] = useState(null);
@@ -15,15 +17,24 @@ export default function Stations() {
 
   useEffect(() => {
     fetchStations();
+    fetchBanks();
   }, []);
 
   const fetchStations = async () => {
     try {
-      const res = await fetch("/api/stations");
-      const data = await res.json();
-      setStations(data);
+      const res = await api.get("/stations");
+      setStations(res.data);
     } catch (error) {
       console.error("Error fetching stations:", error);
+    }
+  };
+
+  const fetchBanks = async () => {
+    try {
+      const res = await api.get("/banks");
+      setBanks(res.data);
+    } catch (error) {
+      console.error("Error fetching banks:", error);
     }
   };
 
@@ -31,7 +42,7 @@ export default function Stations() {
     let newErrors = {};
     if (!formData.location.trim()) newErrors.location = "Location is required";
     if (!formData.code.trim()) newErrors.code = "Code is required";
-    if (!formData.bank_uuid.trim()) newErrors.bank_uuid = "Bank UUID is required";
+    if (!formData.bank_uuid.trim()) newErrors.bank_uuid = "Bank is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -41,25 +52,16 @@ export default function Stations() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const url = isEdit ? `/api/stations/${currentStation.station_uuid}` : "/api/stations";
-    const method = isEdit ? "PUT" : "POST";
+    const url = isEdit ? `/stations/${currentStation.station_uuid}` : "/stations";
+    const method = isEdit ? "put" : "post";
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        setIsEdit(false);
-        fetchStations(); // Refresh table
-      } else {
-        console.error("Failed to save station");
-      }
+      await api[method](url, formData);
+      setIsModalOpen(false);
+      setIsEdit(false);
+      fetchStations();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Failed to save station", error);
     }
   };
 
@@ -74,24 +76,17 @@ export default function Stations() {
     if (!window.confirm("Are you sure you want to delete this station?")) return;
 
     try {
-      const res = await fetch(`/api/stations/${station_uuid}`, { method: "DELETE" });
-
-      if (res.ok) {
-        fetchStations();
-      } else {
-        console.error("Failed to delete station");
-      }
+      await api.delete(`/stations/${station_uuid}`);
+      fetchStations();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Failed to delete station", error);
     }
   };
 
   const columns = [
-    { name: "Station UUID", selector: (row) => row.station_uuid, sortable: true },
     { name: "Location", selector: (row) => row.location, sortable: true },
     { name: "Code", selector: (row) => row.code, sortable: true },
-    { name: "Bank UUID", selector: (row) => row.bank_uuid, sortable: true },
-    { name: "Created On", selector: (row) => new Date(row.date_created).toLocaleDateString(), sortable: true },
+    { name: "Bank", selector: (row) => banks.find((b) => b.bank_uuid === row.bank_uuid)?.bank_name || "N/A", sortable: true },
     {
       name: "Actions",
       cell: (row) => (
@@ -106,57 +101,39 @@ export default function Stations() {
   return (
     <div className="p-6 bg-white shadow rounded">
       <h1 className="text-2xl font-bold mb-4">Stations</h1>
-
       <button
         onClick={() => { setIsEdit(false); setFormData({ location: "", code: "", bank_uuid: "" }); setIsModalOpen(true); }}
         className="mb-4 px-4 py-2 bg-blue-500 text-white rounded"
       >
         + Add Station
       </button>
-
       <DataTable columns={columns} data={stations} pagination highlightOnHover />
 
-      {/* Modal for Adding/Editing Station */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
           <div className="bg-white p-6 rounded shadow-md w-96">
             <h2 className="text-lg font-bold mb-4">{isEdit ? "Edit Station" : "Add Station"}</h2>
             <form onSubmit={handleSubmit}>
-
               <label className="block mb-2">Location</label>
-              <input
-                type="text"
-                className="w-full border p-2 rounded mb-2"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              />
+              <input type="text" className="w-full border p-2 rounded mb-2" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
               {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
 
               <label className="block mb-2">Code</label>
-              <input
-                type="text"
-                className="w-full border p-2 rounded mb-2"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              />
+              <input type="text" className="w-full border p-2 rounded mb-2" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} />
               {errors.code && <p className="text-red-500 text-sm">{errors.code}</p>}
 
-              <label className="block mb-2">Bank UUID</label>
-              <input
-                type="text"
-                className="w-full border p-2 rounded mb-2"
-                value={formData.bank_uuid}
-                onChange={(e) => setFormData({ ...formData, bank_uuid: e.target.value })}
-              />
+              <label className="block mb-2">Bank</label>
+              <select className="w-full border p-2 rounded mb-2" value={formData.bank_uuid} onChange={(e) => setFormData({ ...formData, bank_uuid: e.target.value })}>
+                <option value="">Select a bank</option>
+                {banks.map((bank) => (
+                  <option key={bank.bank_uuid} value={bank.bank_uuid}>{bank.bank_name}</option>
+                ))}
+              </select>
               {errors.bank_uuid && <p className="text-red-500 text-sm">{errors.bank_uuid}</p>}
 
               <div className="flex justify-between mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
-                  {isEdit ? "Update" : "Add"}
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">{isEdit ? "Update" : "Add"}</button>
               </div>
             </form>
           </div>
