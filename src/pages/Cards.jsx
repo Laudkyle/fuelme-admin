@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
-import { Pencil, Trash } from "lucide-react"; // Import Lucide icons
+import { Pencil, Trash, Loader2 } from "lucide-react"; // Lucide icons
 import api from "../api";
 
 export default function Cards() {
-  const [cards, setCards] = useState([]);
+  const [cards, setCards] = useState([]); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false); // 🔹 Added loading state
   const [selectedCardId, setSelectedCardId] = useState(null);
   const [formData, setFormData] = useState({
     phone_number: "",
@@ -18,15 +19,18 @@ export default function Cards() {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+
     fetchCards();
   }, []);
 
   const fetchCards = async () => {
     try {
-      const data = await api.get("/cards");
-      setCards(data);
+      const response = await api.get("/cards");
+      setCards(Array.isArray(response.data) ? response.data : []);
+      console.log(response.data)
     } catch (error) {
       console.error("Error fetching cards:", error);
+      setCards([]);
     }
   };
 
@@ -45,30 +49,36 @@ export default function Cards() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-
+  
+    setLoading(true);
+  
     try {
+      const { phone_number, ...cardData } = formData; 
+  
       if (isEditing) {
-        await api.put(`/cards/${selectedCardId}`, formData);
+        await api.put(`/cards/${selectedCardId}`, cardData); // 🔹 Only send relevant fields
       } else {
-        await api.post("/cards", formData);
+        await api.post("/cards/create", formData);
       }
-
+  
       setIsModalOpen(false);
       setIsEditing(false);
       setSelectedCardId(null);
       fetchCards();
     } catch (error) {
       console.error("Error saving card:", error);
+    } finally {
+      setLoading(false);
     }
   };
-
+  
   const handleEdit = (card) => {
     setFormData({
-      phone_number: card.phone_number,
-      name: card.name,
-      card_number: card.card_number,
-      expiry_date: card.expiry_date,
-      cvc: card.cvc,
+      phone_number: card.phone_number || "",
+      name: card.name || "",
+      card_number: card.card_number || "",
+      expiry_date: card.expiry_date || "",
+      cvc: card.cvc || "",
     });
     setSelectedCardId(card.card_uuid);
     setIsEditing(true);
@@ -76,7 +86,7 @@ export default function Cards() {
   };
 
   const handleDelete = async (id) => {
-    if (alert.confirm("Are you sure you want to delete this card?")) {
+    if (window.confirm("Are you sure you want to delete this card?")) {
       try {
         await api.delete(`/cards/${id}`);
         fetchCards();
@@ -87,10 +97,10 @@ export default function Cards() {
   };
 
   const columns = [
-    { name: "Phone Number", selector: (row) => row.phone_number, sortable: true },
-    { name: "Name", selector: (row) => row.name, sortable: true },
-    { name: "Card Number", selector: (row) => row.card_number, sortable: true },
-    { name: "Expiry Date", selector: (row) => row.expiry_date, sortable: true },
+    // { name: "Phone Number", selector: (row) => row.phone_number || "N/A", sortable: true },
+    { name: "Name", selector: (row) => row.name || "N/A", sortable: true },
+    { name: "Card Number", selector: (row) => row.card_number || "N/A", sortable: true },
+    { name: "Expiry Date", selector: (row) => row.expiry_date || "N/A", sortable: true },
     {
       name: "Actions",
       cell: (row) => (
@@ -112,7 +122,7 @@ export default function Cards() {
       <button onClick={() => setIsModalOpen(true)} className="mb-4 px-4 py-2 bg-blue-500 text-white rounded">
         + {isEditing ? "Edit" : "Add"} Card
       </button>
-      <DataTable columns={columns} data={cards} pagination highlightOnHover />
+      <DataTable columns={columns} data={cards} pagination highlightOnHover noDataComponent="No cards available" />
 
       {/* Modal for Adding/Editing Card */}
       {isModalOpen && (
@@ -169,7 +179,8 @@ export default function Cards() {
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded flex items-center gap-2" disabled={loading}>
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : null}
                   {isEditing ? "Update" : "Add"}
                 </button>
               </div>

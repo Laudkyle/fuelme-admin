@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
+import api from "../api"; // Import API utility
 
 const Loans = () => {
   const [loans, setLoans] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    user_uuid: "",
+    phone_number: "",
     amount: "",
     balance: "",
     agent_uuid: "",
@@ -13,6 +15,7 @@ const Loans = () => {
     status: "",
   });
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchLoans();
@@ -20,20 +23,28 @@ const Loans = () => {
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch("/api/loans");
-      const data = await res.json();
+      const { data } = await api.get("/loans");
       setLoans(data);
     } catch (err) {
       console.error("Error fetching loans:", err);
     }
   };
 
+  const fetchAgents = async () => {
+    try {
+      const { data } = await api.get("/agents");
+      setAgents(data);
+    } catch (err) {
+      console.error("Error fetching agents:", err);
+    }
+  };
+
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.user_uuid.trim()) newErrors.user_uuid = "User ID is required";
+    if (!formData.phone_number.trim()) newErrors.phone_number = "Phone number is required";
     if (!formData.amount.trim() || isNaN(formData.amount)) newErrors.amount = "Valid amount is required";
     if (!formData.balance.trim() || isNaN(formData.balance)) newErrors.balance = "Valid balance is required";
-    if (!formData.agent_uuid.trim()) newErrors.agent_uuid = "Agent ID is required";
+    if (!formData.agent_uuid.trim()) newErrors.agent_uuid = "Agent is required";
     if (!formData.car_uuid.trim()) newErrors.car_uuid = "Car ID is required";
     if (!formData.status.trim()) newErrors.status = "Status is required";
 
@@ -45,22 +56,31 @@ const Loans = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    try {
-      const res = await fetch("/api/loans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+    setIsLoading(true);
 
-      if (res.ok) {
-        setIsModalOpen(false);
-        fetchLoans(); // Refresh table
-      } else {
-        console.error("Failed to add loan");
+    try {
+      const userRes = await api.get(`/users/${formData.phone_number}`);
+      if (!userRes.data) {
+        setErrors({ phone_number: "User not found with this phone number" });
+        setIsLoading(false);
+        return;
       }
+
+      const user_uuid = userRes.data.user_uuid;
+      await api.post("/loans", { ...formData, user_uuid });
+
+      setIsModalOpen(false);
+      fetchLoans(); // Refresh table
     } catch (error) {
       console.error("Error:", error);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const openModal = () => {
+    setIsModalOpen(true);
+    fetchAgents(); // Fetch agents when modal opens
   };
 
   const columns = [
@@ -68,7 +88,7 @@ const Loans = () => {
     { name: "User ID", selector: (row) => row.user_uuid, sortable: true },
     { name: "Amount", selector: (row) => `$${row.amount}`, sortable: true },
     { name: "Balance", selector: (row) => `$${row.balance}`, sortable: true },
-    { name: "Agent ID", selector: (row) => row.agent_uuid, sortable: true },
+    { name: "Agent", selector: (row) => row.agent_name || row.agent_uuid, sortable: true },
     { name: "Car ID", selector: (row) => row.car_uuid, sortable: true },
     { name: "Status", selector: (row) => row.status, sortable: true },
   ];
@@ -77,10 +97,7 @@ const Loans = () => {
     <div className="p-6 bg-white shadow rounded">
       <h2 className="text-xl font-bold mb-4">Loans</h2>
 
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded"
-      >
+      <button onClick={openModal} className="mb-4 px-4 py-2 bg-blue-500 text-white rounded">
         + Add Loan
       </button>
 
@@ -92,15 +109,14 @@ const Loans = () => {
           <div className="bg-white p-6 rounded shadow-md w-96">
             <h2 className="text-lg font-bold mb-4">Add Loan</h2>
             <form onSubmit={handleSubmit}>
-
-              <label className="block mb-2">User ID</label>
+              <label className="block mb-2">Phone Number</label>
               <input
                 type="text"
                 className="w-full border p-2 rounded mb-2"
-                value={formData.user_uuid}
-                onChange={(e) => setFormData({ ...formData, user_uuid: e.target.value })}
+                value={formData.phone_number}
+                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
               />
-              {errors.user_uuid && <p className="text-red-500 text-sm">{errors.user_uuid}</p>}
+              {errors.phone_number && <p className="text-red-500 text-sm">{errors.phone_number}</p>}
 
               <label className="block mb-2">Amount</label>
               <input
@@ -120,13 +136,19 @@ const Loans = () => {
               />
               {errors.balance && <p className="text-red-500 text-sm">{errors.balance}</p>}
 
-              <label className="block mb-2">Agent ID</label>
-              <input
-                type="text"
+              <label className="block mb-2">Agent</label>
+              <select
                 className="w-full border p-2 rounded mb-2"
                 value={formData.agent_uuid}
                 onChange={(e) => setFormData({ ...formData, agent_uuid: e.target.value })}
-              />
+              >
+                <option value="">Select Agent</option>
+                {agents.map((agent) => (
+                  <option key={agent.agent_uuid} value={agent.agent_uuid}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
               {errors.agent_uuid && <p className="text-red-500 text-sm">{errors.agent_uuid}</p>}
 
               <label className="block mb-2">Car ID</label>
@@ -155,8 +177,8 @@ const Loans = () => {
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
-                  Add
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded" disabled={isLoading}>
+                  {isLoading ? "Adding..." : "Add"}
                 </button>
               </div>
             </form>
