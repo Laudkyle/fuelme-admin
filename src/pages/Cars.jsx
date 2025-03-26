@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
 import api from "../api"; // Import API helper
 import axios from "axios";
+import { Pencil, Trash, Loader2 } from "lucide-react"; // Lucide icons
+
 export default function Cars() {
   const [cars, setCars] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -126,7 +128,6 @@ export default function Cars() {
       );
       setFormData((prev) => ({ ...prev, picture: response.data.secure_url }));
 
-      console.log(response.data.secure_url);
       setErrors({ picture: "" });
     } catch (error) {
       console.error("Image Upload Error:", error);
@@ -189,13 +190,13 @@ export default function Cars() {
             onClick={() => handleEdit(row)}
             className="text-blue-500 mr-2"
           >
-            Edit
+            <Pencil size={18} />
           </button>
           <button
             onClick={() => handleDelete(row.car_uuid)}
             className="text-red-500"
           >
-            Delete
+            <Trash size={18} />
           </button>
         </div>
       ),

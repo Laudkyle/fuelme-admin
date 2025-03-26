@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
 import api from "../api"; // Import API helper
+import { Pencil, Trash, Loader2 } from "lucide-react"; // Lucide icons
 
 export default function RepaymentSchedules() {
   const [schedules, setSchedules] = useState([]);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
 import api from "../api"; // Ensure you have API helper
+import { Pencil, Trash, Loader2 } from "lucide-react"; // Lucide icons
 
 const Loans = () => {
   const [loans, setLoans] = useState([]);

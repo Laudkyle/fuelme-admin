@@ -1,4 +1,3 @@
-// Remove AsyncStorage import since it's not needed in web projects
 import { createContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "./api";
@@ -6,25 +5,29 @@ import api from "./api";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    // Try loading user data from localStorage on first load
+    const storedUser = localStorage.getItem("userData");
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+
   const navigate = useNavigate();
 
-  // Load stored user data on app start
+  // Ensure user remains logged in after refresh
   useEffect(() => {
-    const storedUser = localStorage.getItem("userData");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (user) {
+      localStorage.setItem("userData", JSON.stringify(user));
     }
-  }, []);
+  }, [user]);
 
   // Login function
   const login = async (phone, pin) => {
     try {
       const { data } = await api.post("/users/login", { phone, pin });
 
-      // Store user data in localStorage instead of AsyncStorage
-      localStorage.setItem("userData", JSON.stringify(data));
+      // Store user in state and localStorage
       setUser(data);
+      localStorage.setItem("userData", JSON.stringify(data));
       
       navigate("/admin/dashboard");
     } catch (error) {
