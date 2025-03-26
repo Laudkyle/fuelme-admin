@@ -1,37 +1,48 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
+import api from "../api"; // Import API helper
 
 export default function RepaymentSchedules() {
   const [schedules, setSchedules] = useState([]);
+  const [loans, setLoans] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     loan_uuid: "",
     due_date: "",
     repayment_frequency: "",
     total_amount_due: "",
-    status: "Pending",
+    status: "pending",
   });
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     fetchRepayments();
+    fetchLoans();
   }, []);
 
   const fetchRepayments = async () => {
     try {
-      const res = await fetch("/api/repayments");
-      const data = await res.json();
-      setSchedules(data);
+      const data = await api.get("/repaymentSchedules");
+      setSchedules(data.data || []);
     } catch (error) {
       console.error("Error fetching repayments:", error);
     }
   };
 
+  const fetchLoans = async () => {
+    try {
+      const data = await api.get("/loans");
+      setLoans(data.data || []);
+    } catch (error) {
+      console.error("Error fetching loans:", error);
+    }
+  };
+
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.loan_uuid.trim()) newErrors.loan_uuid = "Loan UUID is required";
+    if (!formData.loan_uuid) newErrors.loan_uuid = "Loan is required";
     if (!formData.due_date) newErrors.due_date = "Due date is required";
-    if (!formData.repayment_frequency.trim()) newErrors.repayment_frequency = "Frequency is required";
+    if (!formData.repayment_frequency) newErrors.repayment_frequency = "Frequency is required";
     if (!formData.total_amount_due || isNaN(formData.total_amount_due) || formData.total_amount_due <= 0)
       newErrors.total_amount_due = "Valid amount is required";
 
@@ -44,20 +55,11 @@ export default function RepaymentSchedules() {
     if (!validateForm()) return;
 
     try {
-      const res = await fetch("/api/repayments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        fetchRepayments(); // Refresh table
-      } else {
-        console.error("Failed to add repayment schedule");
-      }
+      await api.post("/repaymentSchedules", formData);
+      setIsModalOpen(false);
+      fetchRepayments();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error adding repayment schedule:", error);
     }
   };
 
@@ -90,13 +92,19 @@ export default function RepaymentSchedules() {
             <h2 className="text-lg font-bold mb-4">Add Repayment</h2>
             <form onSubmit={handleSubmit}>
 
-              <label className="block mb-2">Loan UUID</label>
-              <input
-                type="text"
+              <label className="block mb-2">Loan</label>
+              <select
                 className="w-full border p-2 rounded mb-2"
                 value={formData.loan_uuid}
                 onChange={(e) => setFormData({ ...formData, loan_uuid: e.target.value })}
-              />
+              >
+                <option value="">Select Loan</option>
+                {loans.map((loan) => (
+                  <option key={loan.loan_uuid} value={loan.loan_uuid}>
+                    {loan.loan_uuid}
+                  </option>
+                ))}
+              </select>
               {errors.loan_uuid && <p className="text-red-500 text-sm">{errors.loan_uuid}</p>}
 
               <label className="block mb-2">Due Date</label>
@@ -115,9 +123,10 @@ export default function RepaymentSchedules() {
                 onChange={(e) => setFormData({ ...formData, repayment_frequency: e.target.value })}
               >
                 <option value="">Select Frequency</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Yearly">Yearly</option>
+                <option value="weekly">Weekly</option>
+                <option value="every_two_weeks">Every Two Weeks</option>
+                <option value="monthly">Monthly</option>
+                <option value="anytime">Anytime</option>
               </select>
               {errors.repayment_frequency && <p className="text-red-500 text-sm">{errors.repayment_frequency}</p>}
 

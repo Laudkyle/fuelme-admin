@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
+import { Pencil, Trash2 } from "lucide-react";
+import api from "../api"; // Import API helper
 
 export default function Payments() {
   const [payments, setPayments] = useState([]);
+  const [loans, setLoans] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     loan_uuid: "",
@@ -13,21 +16,32 @@ export default function Payments() {
 
   useEffect(() => {
     fetchPayments();
+    fetchLoans();
   }, []);
 
   const fetchPayments = async () => {
     try {
-      const res = await fetch("/api/payments");
-      const data = await res.json();
-      setPayments(data);
+      const data = await api.get("/payments");
+      setPayments(data.data ?? []); // Fallback to empty array if null
     } catch (error) {
       console.error("Error fetching payments:", error);
+      setPayments([]); // Prevent errors by setting an empty array
+    }
+  };
+
+  const fetchLoans = async () => {
+    try {
+      const data = await api.get("/loans");
+      setLoans(data.data ?? []); // Fallback to empty array if null
+    } catch (error) {
+      console.error("Error fetching loans:", error);
+      setLoans([]); // Prevent errors
     }
   };
 
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.loan_uuid.trim()) newErrors.loan_uuid = "Loan UUID is required";
+    if (!formData.loan_uuid) newErrors.loan_uuid = "Loan is required";
     if (!formData.amount || isNaN(formData.amount) || formData.amount <= 0)
       newErrors.amount = "Valid amount is required";
     if (!formData.datetime) newErrors.datetime = "Date is required";
@@ -41,34 +55,32 @@ export default function Payments() {
     if (!validateForm()) return;
 
     try {
-      const res = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        fetchPayments(); // Refresh table
-      } else {
-        console.error("Failed to add payment");
-      }
+      await api.post("/payments", formData);
+      setIsModalOpen(false);
+      fetchPayments();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error saving payment:", error);
     }
   };
 
   const columns = [
-    { name: "Payment UUID", selector: (row) => row.payment_uuid, sortable: true },
-    { name: "Loan UUID", selector: (row) => row.loan_uuid, sortable: true },
-    { name: "Amount", selector: (row) => `$${row.amount.toFixed(2)}`, sortable: true },
-    { name: "Date", selector: (row) => new Date(row.datetime).toLocaleDateString(), sortable: true },
+    { name: "Loan UUID", selector: (row) => row.loan_uuid ?? "N/A", sortable: true },
+    { 
+      name: "Amount", 
+      selector: (row) => row.amount ? `$${row.amount.toFixed(2)}` : "N/A", 
+      sortable: true 
+    },
+    { 
+      name: "Date", 
+      selector: (row) => row.datetime ? new Date(row.datetime).toLocaleDateString() : "N/A", 
+      sortable: true 
+    },
     {
       name: "Actions",
-      cell: (row) => (
-        <div>
-          <button className="text-blue-500 mr-2">Edit</button>
-          <button className="text-red-500">Delete</button>
+      cell: () => (
+        <div className="flex space-x-2 text-gray-400 cursor-not-allowed">
+          <Pencil size={18} />
+          <Trash2 size={18} />
         </div>
       ),
     },
@@ -79,7 +91,10 @@ export default function Payments() {
       <h1 className="text-2xl font-bold mb-4">Payments</h1>
 
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => {
+          setIsModalOpen(true);
+          setFormData({ loan_uuid: "", amount: "", datetime: "" });
+        }}
         className="mb-4 px-4 py-2 bg-blue-500 text-white rounded"
       >
         + Add Payment
@@ -94,13 +109,19 @@ export default function Payments() {
             <h2 className="text-lg font-bold mb-4">Add Payment</h2>
             <form onSubmit={handleSubmit}>
 
-              <label className="block mb-2">Loan UUID</label>
-              <input
-                type="text"
+              <label className="block mb-2">Loan</label>
+              <select
                 className="w-full border p-2 rounded mb-2"
                 value={formData.loan_uuid}
                 onChange={(e) => setFormData({ ...formData, loan_uuid: e.target.value })}
-              />
+              >
+                <option value="">Select Loan</option>
+                {loans.map((loan) => (
+                  <option key={loan.loan_uuid} value={loan.loan_uuid}>
+                    {loan.loan_uuid}
+                  </option>
+                ))}
+              </select>
               {errors.loan_uuid && <p className="text-red-500 text-sm">{errors.loan_uuid}</p>}
 
               <label className="block mb-2">Amount</label>

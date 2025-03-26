@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import DataTable from "react-data-table-component";
 import { Users, CreditCard, Banknote, Layers } from "lucide-react";
+import api from "../api"; // Import api.js
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -15,17 +16,37 @@ const Dashboard = () => {
   const [chartData, setChartData] = useState([]);
   const [loanStatusData, setLoanStatusData] = useState([]);
 
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
   useEffect(() => {
-    // Fetch stats
-    fetch("/api/dashboard")
-      .then((res) => res.json())
-      .then((data) => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await api.get("/dashboard");
+        const data = response.data;
+
         setStats(data.stats);
         setTransactions(data.recentTransactions);
-        setChartData(data.transactionChart);
+
+        // Convert "Month 3" to "March"
+        const formattedChartData = data.transactionChart.map((item) => {
+          const monthNumber = parseInt(item.month.replace("Month ", "")); // Extract number
+          return {
+            ...item,
+            month: monthNames[monthNumber - 1], // Convert to month name
+          };
+        });
+
+        setChartData(formattedChartData);
         setLoanStatusData(data.loanStatusChart);
-      })
-      .catch((err) => console.error("Error fetching dashboard data:", err));
+        console.log("Formatted Chart Data:", formattedChartData);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      }
+    }
+    fetchDashboardData();
   }, []);
 
   // Loan status colors
@@ -34,7 +55,7 @@ const Dashboard = () => {
   // Table columns
   const columns = [
     { name: "Transaction ID", selector: (row) => row.transaction_uuid, sortable: true },
-    { name: "User", selector: (row) => row.user_name, sortable: true },
+    { name: "User", selector: (row) => row.name, sortable: true },
     { name: "Amount", selector: (row) => `$${row.amount}`, sortable: true },
     { name: "Type", selector: (row) => row.type, sortable: true },
     { name: "Date", selector: (row) => new Date(row.datetime).toLocaleDateString(), sortable: true },

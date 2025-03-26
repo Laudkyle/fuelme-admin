@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
+import api from "../api";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
+  const [loans, setLoans] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState(null);
   const [formData, setFormData] = useState({
+    phone_number: "",
     user_uuid: "",
     loan_uuid: "",
     amount: "",
@@ -16,21 +19,44 @@ export default function Transactions() {
 
   useEffect(() => {
     fetchTransactions();
+    fetchLoans();
   }, []);
 
   const fetchTransactions = async () => {
     try {
-      const res = await fetch("/api/transactions");
-      const data = await res.json();
-      setTransactions(data);
+      const { data } = await api.get("/transactions");
+      setTransactions(data || []);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     }
   };
 
+  const fetchLoans = async () => {
+    try {
+      const { data } = await api.get("/loans");
+      setLoans(data || []);
+    } catch (error) {
+      console.error("Error fetching loans:", error);
+    }
+  };
+
+  const fetchUserUUID = async (phone) => {
+    try {
+      const { data } = await api.get(`/users/${phone}`);
+      if (data && data.user_uuid) {
+        setFormData((prev) => ({ ...prev, user_uuid: data.user_uuid }));
+      } else {
+        setFormData((prev) => ({ ...prev, user_uuid: "" }));
+      }
+    } catch (error) {
+      console.error("Error fetching user UUID:", error);
+      setFormData((prev) => ({ ...prev, user_uuid: "" }));
+    }
+  };
+
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.user_uuid.trim()) newErrors.user_uuid = "User UUID is required";
+    if (!formData.phone_number.trim()) newErrors.phone_number = "Phone number is required";
     if (!formData.loan_uuid.trim()) newErrors.loan_uuid = "Loan UUID is required";
     if (!formData.amount.trim() || isNaN(formData.amount)) newErrors.amount = "Valid amount is required";
     if (!formData.type.trim()) newErrors.type = "Transaction type is required";
@@ -40,28 +66,24 @@ export default function Transactions() {
   };
 
   const handleSubmit = async (e) => {
+    fetchUserUUID(formData.phone_number)
     e.preventDefault();
     if (!validateForm()) return;
 
-    const url = isEdit ? `/api/transactions/${currentTransaction.transaction_uuid}` : "/api/transactions";
-    const method = isEdit ? "PUT" : "POST";
-
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        setIsEdit(false);
-        fetchTransactions(); // Refresh table
+      if (isEdit) {
+        await api.put(`/transactions/${currentTransaction.transaction_uuid}`, formData);
       } else {
-        console.error("Failed to save transaction");
+        await api.post("/transactions", formData);
       }
+
+      setIsModalOpen(false);
+      fetchTransactions();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error saving transaction:", error);
+    } finally {
+      setIsEdit(false);
+      setCurrentTransaction(null);
     }
   };
 
@@ -76,15 +98,10 @@ export default function Transactions() {
     if (!window.confirm("Are you sure you want to delete this transaction?")) return;
 
     try {
-      const res = await fetch(`/api/transactions/${transaction_uuid}`, { method: "DELETE" });
-
-      if (res.ok) {
-        fetchTransactions();
-      } else {
-        console.error("Failed to delete transaction");
-      }
+      await api.delete(`/transactions/${transaction_uuid}`);
+      fetchTransactions();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error deleting transaction:", error);
     }
   };
 
@@ -111,14 +128,19 @@ export default function Transactions() {
       <h1 className="text-2xl font-bold mb-4">Transactions</h1>
 
       <button
-        onClick={() => { setIsEdit(false); setFormData({ user_uuid: "", loan_uuid: "", amount: "", type: "" }); setIsModalOpen(true); }}
+        onClick={() => {
+          setIsEdit(false);
+          setFormData({ phone_number: "", user_uuid: "", loan_uuid: "", amount: "", type: "" });
+          setIsModalOpen(true);
+        }}
         className="mb-4 px-4 py-2 bg-blue-500 text-white rounded"
       >
         + Add Transaction
       </button>
 
-      <DataTable columns={columns} data={transactions} pagination highlightOnHover />
-
+      <div className="overflow-x-auto" style={{ width: "calc(100vw - 350px)" }}>
+        <DataTable columns={columns} data={transactions} pagination highlightOnHover />
+      </div>
       {/* Modal for Adding/Editing Transaction */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
@@ -126,22 +148,31 @@ export default function Transactions() {
             <h2 className="text-lg font-bold mb-4">{isEdit ? "Edit Transaction" : "Add Transaction"}</h2>
             <form onSubmit={handleSubmit}>
 
-              <label className="block mb-2">User UUID</label>
+              <label className="block mb-2">Phone Number</label>
               <input
                 type="text"
                 className="w-full border p-2 rounded mb-2"
-                value={formData.user_uuid}
-                onChange={(e) => setFormData({ ...formData, user_uuid: e.target.value })}
+                value={formData.phone_number}
+                onChange={(e) => {
+                  setFormData({ ...formData, phone_number: e.target.value });
+                }}
               />
-              {errors.user_uuid && <p className="text-red-500 text-sm">{errors.user_uuid}</p>}
+              {errors.phone_number && <p className="text-red-500 text-sm">{errors.phone_number}</p>}
 
-              <label className="block mb-2">Loan UUID</label>
-              <input
-                type="text"
+              
+              <label className="block mb-2">Loan</label>
+              <select
                 className="w-full border p-2 rounded mb-2"
                 value={formData.loan_uuid}
                 onChange={(e) => setFormData({ ...formData, loan_uuid: e.target.value })}
-              />
+              >
+                <option value="">Select Loan</option>
+                {loans.map((loan) => (
+                  <option key={loan.loan_uuid} value={loan.loan_uuid}>
+                    {loan.loan_uuid}
+                  </option>
+                ))}
+              </select>
               {errors.loan_uuid && <p className="text-red-500 text-sm">{errors.loan_uuid}</p>}
 
               <label className="block mb-2">Amount</label>
@@ -163,15 +194,10 @@ export default function Transactions() {
                 <option value="deposit">Deposit</option>
                 <option value="withdrawal">Withdrawal</option>
               </select>
-              {errors.type && <p className="text-red-500 text-sm">{errors.type}</p>}
 
               <div className="flex justify-between mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
-                  {isEdit ? "Update" : "Add"}
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">{isEdit ? "Update" : "Add"}</button>
               </div>
             </form>
           </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
+import api from "../api";
+import { Pencil, Trash2 } from "lucide-react";
 
 export default function UsersProfiles() {
   const [data, setData] = useState([]);
@@ -18,16 +20,15 @@ export default function UsersProfiles() {
   useEffect(() => {
     fetchUsersAndProfiles();
   }, []);
-const url = process.env.API_URL
+
   const fetchUsersAndProfiles = async () => {
     try {
-      const usersRes = await fetch(`${url}/api/users`);
-      const profilesRes = await fetch(`${url}/api/profiles`);
+      const usersRes = await api.get("/users");
+      const profilesRes = await api.get("/profiles");
 
-      const users = await usersRes.json();
-      const profiles = await profilesRes.json();
+      const users = usersRes.data || [];
+      const profiles = profilesRes.data || [];
 
-      // Merge users with their profiles
       const mergedData = users.map((user) => {
         const profile = profiles.find((p) => p.user_uuid === user.user_uuid) || {};
         return {
@@ -61,25 +62,18 @@ const url = process.env.API_URL
     e.preventDefault();
     if (!validateForm()) return;
 
-    const url = isEdit ? `/api/users/${currentUser.user_uuid}` : "/api/users";
-    const method = isEdit ? "PUT" : "POST";
-
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        setIsEdit(false);
-        fetchUsersAndProfiles(); // Refresh table
+      if (isEdit) {
+        await api.put(`/users/${currentUser.user_uuid}`, formData);
       } else {
-        console.error("Failed to save user");
+        await api.post("/users", formData);
       }
+
+      setIsModalOpen(false);
+      setIsEdit(false);
+      fetchUsersAndProfiles();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Failed to save user:", error);
     }
   };
 
@@ -94,15 +88,10 @@ const url = process.env.API_URL
     if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      const res = await fetch(`/api/users/${user_uuid}`, { method: "DELETE" });
-
-      if (res.ok) {
-        fetchUsersAndProfiles();
-      } else {
-        console.error("Failed to delete user");
-      }
+      await api.delete(`/users/${user_uuid}`);
+      fetchUsersAndProfiles();
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Failed to delete user:", error);
     }
   };
 
@@ -116,9 +105,9 @@ const url = process.env.API_URL
     {
       name: "Actions",
       cell: (row) => (
-        <div>
-          <button onClick={() => handleEdit(row)} className="text-blue-500 mr-2">Edit</button>
-          <button onClick={() => handleDelete(row.user_uuid)} className="text-red-500">Delete</button>
+        <div className="flex space-x-2">
+          <Pencil className="text-blue-500 cursor-pointer" onClick={() => handleEdit(row)} />
+          <Trash2 className="text-red-500 cursor-pointer" onClick={() => handleDelete(row.user_uuid)} />
         </div>
       ),
     },
@@ -129,7 +118,11 @@ const url = process.env.API_URL
       <h1 className="text-2xl font-bold mb-4">Users & Profiles</h1>
 
       <button
-        onClick={() => { setIsEdit(false); setFormData({ phone: "", name: "", email: "", address: "", category: "" }); setIsModalOpen(true); }}
+        onClick={() => {
+          setIsEdit(false);
+          setFormData({ phone: "", name: "", email: "", address: "", category: "" });
+          setIsModalOpen(true);
+        }}
         className="mb-4 px-4 py-2 bg-blue-500 text-white rounded"
       >
         + Add User
@@ -137,13 +130,11 @@ const url = process.env.API_URL
 
       <DataTable columns={columns} data={data} pagination highlightOnHover />
 
-      {/* Modal for Adding/Editing User */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
           <div className="bg-white p-6 rounded shadow-md w-96">
             <h2 className="text-lg font-bold mb-4">{isEdit ? "Edit User" : "Add User"}</h2>
             <form onSubmit={handleSubmit}>
-
               <label className="block mb-2">Phone</label>
               <input
                 type="text"
@@ -189,7 +180,11 @@ const url = process.env.API_URL
               />
 
               <div className="flex justify-between mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-500 text-white rounded">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded"
+                >
                   Cancel
                 </button>
                 <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">

@@ -7,7 +7,7 @@ const Sidebar = () => {
   const [expanded, setExpanded] = useState(true);
 
   const menuItems = [
-    { name: "Dashboard", icon: <Home size={20} />, path: "/admin" },
+    { name: "Dashboard", icon: <Home size={20} />, path: "/admin/dashboard" },
     { name: "Users", icon: <Users size={20} />, path: "/admin/users" },
     { name: "Agents", icon: <Users size={20} />, path: "/admin/agents" },
     { name: "Cars", icon: <Truck size={20} />, path: "/admin/cars" },
