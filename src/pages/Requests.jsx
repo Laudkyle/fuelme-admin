@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
-import { Pencil, Trash2 } from "lucide-react"; // Lucide icons
+import { Pencil, Trash2 } from "lucide-react"; 
 import api from "../api"; // API helper
 
 export default function Requests() {
