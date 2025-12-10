@@ -158,7 +158,7 @@ const fetchUsers = async () => {
           ...agentData,
           user_uuid: formData.user_uuid.trim()
         };
-        await api.post("/agents", createData); // Changed from /agents/create
+        await api.post("/agents/create", createData); 
       }
 
       setIsModalOpen(false);
