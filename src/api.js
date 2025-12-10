@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://fuel-me.onrender.com/api"; // Backend URL
+const API_BASE_URL = "http://localhost:5000/api"; // Backend URL
 
 // Create an Axios instance
 const api = axios.create({
