@@ -108,7 +108,6 @@ export default function Requests() {
 
       const requestData = { ...formData, user_uuid: userData.data.user_uuid };
       delete requestData.phone_number;
-      console.log(requestData)
 
       if (isEdit) {
         await api.put(`/requests/${currentRequest.request_uuid}`, requestData);
