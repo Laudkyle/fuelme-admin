@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import { AuthContext } from "../AuthContext";
 
 export default function Login() {
-  const [form, setForm] = useState({ phone: "", pin: "" });
+  const [form, setForm] = useState({ adminApiKey: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { login } = useContext(AuthContext);
@@ -17,7 +17,7 @@ export default function Login() {
     setError(null);
 
     try {
-      await login(form.phone, form.pin);
+      await login(form.adminApiKey);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,27 +34,18 @@ export default function Login() {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600">Phone Number</label>
-            <input
-              type="text"
-              name="phone"
-              placeholder="Enter your phone"
-              value={form.phone}
-              onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring focus:ring-purple-200 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-600">PIN</label>
+            <label className="block text-sm font-medium text-gray-600">Admin API Key</label>
             <input
               type="password"
-              name="pin"
-              placeholder="Enter your PIN"
-              value={form.pin}
+              name="adminApiKey"
+              placeholder="Enter Admin API Key"
+              value={form.adminApiKey}
               onChange={handleChange}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring focus:ring-purple-200 focus:outline-none"
             />
+            <p className="mt-2 text-xs text-gray-500">
+              This key is required to access admin-only endpoints. It is sent as <span className="font-mono">x-admin-api-key</span>.
+            </p>
           </div>
 
           <button
@@ -70,11 +61,8 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500">
-          Don't have an account?{" "}
-          <a href="/register" className="text-purple-600 font-medium hover:underline">
-            Sign up
-          </a>
+        <p className="text-center text-xs text-gray-500">
+          If you do not have an Admin API Key, request one from the system administrator.
         </p>
       </div>
     </div>
